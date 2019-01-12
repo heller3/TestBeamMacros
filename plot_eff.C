@@ -41,7 +41,7 @@ dt->Add("/Users/rheller/cernbox/ETL/tb/W6_2x8_bv360/DT*.root");
 vme->Add("/Users/rheller/cernbox/ETL/tb/W6_2x8_bv360/DataVME*.root");
 
 //plot efficiency map for 3 datasets
-int nbinsX=400;
+int nbinsX=200;
 int nbinsY=100;
 int minX=1;
 int maxX=21;
@@ -139,10 +139,10 @@ float lboundx = 2.6;
 float rboundx = 19.6;
 float uboundy = 23;
 float lboundy = 18.7;
-int nsels=1;
-vector<TString> den_sel = {/*"ntracks==1",*/"ntracks==1&&chi2<3"/*,Form("ntracks==1&&chi2<3&&x_corr>%f&&x_corr<%f&&y_corr>%f&&y_corr<%f",lboundx,rboundx,lboundy,uboundy)*/,"ntracks==1&&chi2<3&&ySlope>0.00015&&ySlope<0.00045&&xSlope>0.00005&&xSlope<0.0004"};
+int nsels=2;
+vector<TString> den_sel = {/*"ntracks==1",*/"ntracks==1&&chi2<3","ntracks==1&&chi2<3&&corruption==0"/*,Form("ntracks==1&&chi2<3&&x_corr>%f&&x_corr<%f&&y_corr>%f&&y_corr<%f",lboundx,rboundx,lboundy,uboundy)*/,"ntracks==1&&chi2<3&&ySlope>0.00015&&ySlope<0.00045&&xSlope>0.00005&&xSlope<0.0004"};
 
-vector<TString> ptk_sel = {"((amp[4]>10&&amp[4]<50&&run<1766)||(amp[0]>70&&amp[0]<300&&run>=1766))","(amp[4]>10&&amp[4]<50&&run<1766)","(amp[0]>70&&amp[0]<300&&run>=1766)","(amp[27]>40&&amp[27]<120&&run<1766)"};
+vector<TString> ptk_sel = {"((amp[4]>10&&amp[4]<50&&run<1766)||(amp[0]>150&&amp[0]<200&&run>=1766))","(amp[4]>10&&amp[4]<50&&run<1766)","(amp[0]>150&&amp[0]<200&&run>=1766)","(amp[27]>40&&amp[27]<120&&run<1766)"};
 TString single_chan_sel = "(chidx[dummy]>=0 && (amp[chidx[dummy]]>15 && risetime[chidx[dummy]]>0.15))";
 
 

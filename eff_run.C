@@ -6,12 +6,13 @@ using namespace std;
 
 void eff_run(int run_i, int run_f, int ch, float x_i, float x_f, float y_i, float y_f, float thres, int isvme)
 {
-  TH1F* h_num = new TH1F("h_num","", run_f - run_i + 1, run_i, run_f);
-  TH1F* h_den = new TH1F("h_den","", run_f - run_i + 1, run_i, run_f);
-  TH1F* h_dummy = new TH1F("h_dummy","", run_f - run_i + 1, run_i, run_f);
-  TH1F* h_num1 = new TH1F("h_num1","", run_f - run_i + 1, run_i, run_f);
-  TH1F* h_den1 = new TH1F("h_den1","", run_f - run_i + 1, run_i, run_f);
-  TH1F* h_dummy1 = new TH1F("h_dummy1","", run_f - run_i + 1, run_i, run_f);
+ 
+  //Warning: photek cut is hardcoded
+ 
+  TH1F* h_num = new TH1F("h_num","", run_f - run_i + 1, run_i, run_f+1);
+  TH1F* h_den = new TH1F("h_den", "", run_f - run_i + 1, run_i, run_f+1);
+  TH1F* h_dummy = new TH1F("h_dummy", "", run_f - run_i + 1, run_i, run_f+1);
+
   vector<float> no_pulse;
   vector<float> no_rootfile;
   vector<float> no_tracks;
