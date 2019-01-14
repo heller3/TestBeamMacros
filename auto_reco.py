@@ -31,16 +31,22 @@ def exists_remote(host, path):
     raise Exception('SSH failed')
 
 def errorfile(run_number, error):
-    errorfile_handle = open("/data/TestBeam/2018_11_November_CMSTiming/error_runs.txt", "a+") 
+    errorfile_handle = open(basedir+"error_runs.txt", "a+") 
     errorfile_handle.write("Run Number: " + str(run_number)+ "..........Error in ")
     errorfile_handle.write(error + "\n")
     errorfile_handle.close()
 
+basedir = '/eos/uscms/store/user/cmstestbeam/BTL_ETL/2018_11_recover/' 
+basedir_rulinux = '/data/TestBeam/2018_11_November_CMSTiming/'
+timingDAQ_location = '/uscms/home/rheller/work/TimingDAQ/'
+trackdir_local = '/uscms/home/rheller/work/CMSTimingConverted/'
+#'/data/TestBeam/2018_11_November_CMSTiming/'
+
 while(1):
                 #list of all the run numbers                                                                                                                                                                                                 
-                list_raw_to_check = [(x.split("_Run")[1].split(".dat")[0].split("_")[0]) for x in glob.glob('/data/TestBeam/2018_11_November_CMSTiming/CMSTiming/*_Run*')]
-                list_reco = [(x.split("_Run")[1].split(".root")[0].split("_")[0]) for x in glob.glob('/data/TestBeam/2018_11_November_CMSTiming/RECO/v7/*_Run*')]
-                list_track = [(x.split("_Run")[1].split(".root")[0].split("_")[0]) for x in glob.glob('/data/TestBeam/2018_11_November_CMSTiming/RECO/v7/*_Run*')]
+                list_raw_to_check = [(x.split("_Run")[1].split(".dat")[0].split("_")[0]) for x in glob.glob(basedir+'CMSTiming/*_Run*')]
+                list_reco = [(x.split("_Run")[1].split(".root")[0].split("_")[0]) for x in glob.glob(basedir+'RECO/v7/*_Run*')]
+                list_track = [(x.split("_Run")[1].split(".root")[0].split("_")[0]) for x in glob.glob(basedir+'RECO/v7/*_Run*')] ### what is this for?
 
                 #Check if the list is fine                                                                                                                                                                                                   
                 bool, list_raw = check(list_raw_to_check)
@@ -64,17 +70,20 @@ while(1):
                     if x >= int(sys.argv[1]):
                         #Check if the track is already there
                         print '############################ RUN NUMBER %i ############################' % x
-                        trackrulinux_path = '/data/TestBeam/2018_11_November_CMSTiming/CMSTimingConverted/Run%i_CMSTiming_converted.root' % x
-                        trackdaq08_path = '/data/TestBeam/2018_11_November_CMSTiming/Tracks/Run%i_CMSTiming_converted.root' % x
+                        trackrulinux_path = basedir_rulinux+'CMSTimingConverted/Run%i_CMSTiming_converted.root' % x
+                        tracklocal_path = trackdir_local+'Run%i_CMSTiming_converted.root' % x
+                        
                         if exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', trackrulinux_path):
-                            if os.path.exists(trackdaq08_path):
+                            if os.path.exists(tracklocal_path):
                                 print '\n Track file exist and is already present on daq-08, no need to do Tracking or copying \n' 
                             else:
                                 print '\n Track file exist on rulinux but not on daq-08, copying Track file \n'
-                                copy_cmd = 'scp ' + trackrulinux_path + ' cmstiming@ftbf-daq-08.fnal.gov:/data/TestBeam/2018_11_November_CMSTiming/Tracks'
+                                copy_cmd = 'scp otsdaq@rulinux04.dhcp.fnal.gov:' + trackrulinux_path + " " + trackdir_local
+                                print copy_cmd
                                 os.system(copy_cmd)
-                            bad_scp = not os.path.exists(trackdaq08_path)
+                            bad_scp = not os.path.exists(tracklocal_path)
                         else:
+                            continue;
                             print '\n Doing Tracking \n'
                             #Doing the tracking for the run
                             session = subprocess.Popen(["ssh", "otsdaq@rulinux04.dhcp.fnal.gov", ". /home/otsdaq/CMSTiming/HyperScriptFastTrigger_NewGeo_18_12_11.sh %i" % x], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -83,31 +92,40 @@ while(1):
                                 bad_scp = True
                                 errorfile(x, "Tracking")
                                 print '\n Tracking threw an error \n'
-                                if exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', '/data/TestBeam/2018_11_November_CMSTiming/CMSTimingConverted/Run%i_CMSTiming_converted.root' % x) and  not os.path.exists(trackdaq08_path):
+                                if exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', basedir+'CMSTimingConverted/Run%i_CMSTiming_converted.root' % x) and  not os.path.exists(tracklocal_path):
                                     print '\n The error was due to a problem in SCPing from RULINUX TO DAQ08 \n \n Not doing the Tracking now \n'
-                                elif not  exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', '/data/TestBeam/2018_11_November_CMSTiming/CMSTimingConverted/Run%i_CMSTiming_converted.root' % x) and  not os.path.exists(trackdaq08_path):
+                                elif not  exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', basedir+'CMSTimingConverted/Run%i_CMSTiming_converted.root' % x) and  not os.path.exists(tracklocal_path):
                                     print '\n The error was an intrinsic Tracking error \n'
                                     errorfile(x, "Intrinsic Tracking")
                                     
                             else:
                                 print "\n Tracking didn't throw any error \n" 
                                 #Checking if the track file now exists on rulinux    
-                                if exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', '/data/TestBeam/2018_11_November_CMSTiming/CMSTimingConverted/Run%i_CMSTiming_converted.root' % x) and  os.path.exists(trackdaq08_path):
-                                    print '\n Track file now exists on rulinux and daq08 \n'
+                                if exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', basedir+'CMSTimingConverted/Run%i_CMSTiming_converted.root' % x) and  os.path.exists(tracklocal_path):
+                                    print '\n Track file now exists on rulinux and local \n'
 
                         #Checking Track file size
                         if not bad_scp: 
-                            print '\n Checking Tracking file size on daq08 \n'
-                            statinfo = os.stat(trackdaq08_path)
+                            print '\n Checking Tracking file size local \n'
+                            statinfo = os.stat(tracklocal_path)
                             if statinfo.st_size < 10000:
                                 print '\n The track file size is too small, tracking was bad: not doing the reco \n'
                                 errorfile(x, "SMALL TRACKING FILE")
                             else:    
                                 print '\n The track file size is fine, Doing the reco \n'
-                                session2 = subprocess.Popen('cd /data/TestBeam/2018_11_November_CMSTiming/TimingDAQ/;source ~/cmstiming_setup_meraj.sh;python automation/DecodeData.py --vVME v7 -R %i;cd -' % x,stdout=PIPE, stderr=PIPE, shell=True)
+                                # print 'cd %s;source setup_cmslpc.sh;python automation/DecodeData.py --vVME v7 -R %i;cd -' % (timingDAQ_location,x)
+                                # break
+                                session2 = subprocess.Popen('cd %s;source setup_cmslpc.sh;python automation/DecodeData.py --vVME v7 -R %i;cd -' % (timingDAQ_location,x),stdout=PIPE, stderr=PIPE, shell=True)
                                 stdout, stderr = session2.communicate()
+                                print 'stderr is '
+                                print stderr
+                                print stdout
                                 if str(stderr) == str("VMEDat2Root: app/VMEDat2Root.cc:22: int main(int, char**): Assertion `false' failed."):
                                     print '\n The reco was fine \n'
+                                elif stderr and "glibc" in str(stderr):
+                                    print '\n Seems like there is corruption. Try first 2k events only. \n'
+                                    session2 = subprocess.Popen('rm /eos/uscms/store/user/cmstestbeam/BTL_ETL/2018_11_recover/RECO/v7/DataVMETiming_Run%i.root;cd %s;source setup_cmslpc.sh;python automation/DecodeData.py --vVME v7 -R %i --N_evts=2000;cd -' % (x,timingDAQ_location,x),stdout=PIPE, stderr=PIPE, shell=True)
+
                                 elif stderr and str(stderr) != "VMEDat2Root: app/VMEDat2Root.cc:22: int main(int, char**): Assertion `false' failed.":
                                     print '\n The reco threw some error \n'
                                     errorfile(x, "RECO" + str(stderr)) 

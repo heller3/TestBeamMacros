@@ -21,7 +21,8 @@ void eff_run(int run_i, int run_f, int ch, float x_i, float x_f, float y_i, floa
   float y_dut;
   for (int i=run_i; i < run_f + 1; i++)
     {
-      TString root_filename = Form("/data/TestBeam/2018_11_November_CMSTiming/RECO/v5/DataVMETiming_Run%i.root", i);
+      TString root_filename = Form("/eos/uscms/store/user/cmstestbeam/BTL_ETL/2018_11_recover/RECO/v7/DataVMETiming_Run%i.root", i);
+     // TString root_filename = Form("/data/TestBeam/2018_11_November_CMSTiming/RECO/v5/DataVMETiming_Run%i.root", i);
       //TString root_filename = Form("/Users/rheller/cernbox/ETL/tb/W6_2x8_bv360/DataVMETiming_Run%i_2x2mm_2x8_W6_bv360.root", i);                                 
       //if(isvme==0) TString root_filename = Form("/data/TestBeam/2018_11_November_CMSTiming/DT5742/RECO/v6/DT5742_Run%i.root", i);                                
       //if(isvme==0) root_filename = Form("/Users/rheller/cernbox/ETL/tb/W6_2x8_bv360/DT5742_Run%i_2x2mm_2x8_W6_bv360.root", i); 
@@ -29,6 +30,10 @@ void eff_run(int run_i, int run_f, int ch, float x_i, float x_f, float y_i, floa
       //TString root_filename = Form("/eos/uscms/store/group/cmstestbeam/BTL_ETL/2018_11/data/DT5742/RECO/v6/DT5742_Run%i.root", i);                               
       //TString root_filename = Form("/eos/uscms/store/group/cmstestbeam/BTL_ETL/2018_11/data/VME/RECO/v6/DataVMETiming_Run%i_2x2mm_2x8_W6_bv360.root", i);         
       TFile *f = TFile::Open(root_filename);
+      if (!f){
+        root_filename = Form("/eos/uscms/store/user/cmstestbeam/BTL_ETL/2018_11_recover/RECO/v7/recover/DataVMETiming_Run%i.root", i);
+        f = TFile::Open(root_filename);
+      }
       if(f) //file exist                                                                                                                                            
         {
           TTree *pulse = (TTree*)f->Get("pulse");
@@ -62,22 +67,20 @@ void eff_run(int run_i, int run_f, int ch, float x_i, float x_f, float y_i, floa
                   //TString num_cmd = Form("amp[%i]>%.2f&&%s", ch,thres,den_cmd.Data());                                                                                                                                                                                                                                                                                                                                                
                   //TString den_cmd = Form("ntracks==1&&chi2<3&&xSlope<%f&&xSlope>%f&&ySlope<%f&&ySlope>%f&&x_dut[2]>%.2f&&x_dut[2]<%.2f&&y_dut[2]>%.2f&&y_dut[2]<%.2f", xMeanr, xMeanl, yMeanr, yMeanl, x_i, x_f, y_i, y_f);
 
-                  TString den_cmd = Form("ntracks==1&&chi2<2&&x_dut[1]>%.2f&&x_dut[1]<%.2f&&y_dut[1]>%.2f&&y_dut[1]<%.2f",  x_i, x_f, y_i, y_f);
+                  TString den_cmd = Form("ntracks==1&&chi2<5&&x_dut[2]>%.2f&&x_dut[2]<%.2f&&y_dut[2]>%.2f&&y_dut[2]<%.2f",  x_i, x_f, y_i, y_f);
                   TString num_cmd = Form("amp[%i]>%.2f&&%s", ch,thres,den_cmd.Data());
-                  TString den_cmd1 = Form("ntracks==1&&chi2<2&&x_dut[2]>%.2f&&x_dut[2]<%.2f&&y_dut[2]>%.2f&&y_dut[2]<%.2f", x_i, x_f, y_i, y_f);
-                  TString num_cmd1 = Form("amp[%i]>%.2f&&%s", ch,thres,den_cmd1.Data());
+                 
                   float num_entries = pulse->GetEntries(num_cmd);
                   float den_entries = pulse->GetEntries(den_cmd);
                   float effi; 
-		  if(den_entries>0) effi = num_entries/den_entries;
+            		  if(den_entries>0) effi = num_entries/den_entries;
                   //std::cout<<effi_num<<endl;                                                                                                                      
                   //std::cout<<effi_den<<endl;                                                                                                                      
                   //std::cout<<effi<<endl;                                                                                                                          
                   if (effi<0.8) bad_tracks.push_back(i); //bad efficiency                                                                                           
-                  h_num->SetBinContent(h_num->FindBin(i), pulse->GetEntries(num_cmd));
-                  h_den->SetBinContent(h_den->FindBin(i), pulse->GetEntries(den_cmd));
-                  h_num1->SetBinContent(h_num1->FindBin(i), pulse->GetEntries(num_cmd1));
-                  h_den1->SetBinContent(h_den1->FindBin(i), pulse->GetEntries(den_cmd1));
+                  h_num->SetBinContent(h_num->FindBin(i), num_entries);
+                  h_den->SetBinContent(h_den->FindBin(i), den_entries);
+
                 }
               else no_tracks.push_back(i);
             }
@@ -88,7 +91,7 @@ void eff_run(int run_i, int run_f, int ch, float x_i, float x_f, float y_i, floa
     }
 
   TCanvas *c1 = new TCanvas("c1", "c1",900,900);
-  c1->Divide(3,2);
+  c1->Divide(1,3);
   c1->cd(1);
   h_num->Draw();
   c1->cd(2);
@@ -99,17 +102,9 @@ void eff_run(int run_i, int run_f, int ch, float x_i, float x_f, float y_i, floa
   h_dummy->Draw();
   h_eff->Draw("EP");
 
-  c1->cd(4);
-  h_num1->Draw();
-  c1->cd(5);
-  h_den1->Draw();
-  c1->cd(6);
-  TGraphAsymmErrors* h_eff1 = new TGraphAsymmErrors();
-  h_eff1->Divide(h_num1,h_den1,"cl=0.683 b(1,1) mode");
-  h_dummy1->Draw();
-  h_eff1->Draw("EP");
 
-
+  TString filename = Form("plots/eff_run_run%i_to%i_ch%i.pdf",run_i,run_f,ch);
+  c1->Print(filename);
 
   for (int i=0;i<no_rootfile.size();i++) std::cout<<"Missing root file"<<no_rootfile[i]<<endl;
   for (int i=0;i<no_pulse.size();i++) std::cout<<"Missing pulse"<<no_pulse[i]<<endl;
