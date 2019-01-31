@@ -142,41 +142,12 @@ InitBranches();
 uint nentries= t->GetEntries();
 cout<<"Loaded trees with  "<<nentries<<" events."<<endl;
 
-vector<TString> base_sel = {"ntracks==1&&chi2<3&&(amp[0]>150&&amp[0]<200&&run>=1766)","first","last"};
+
+//This is leftover convention, not used explicitly except to determine the number of variations on the selection
+vector<TString> base_sel = {"all runs","early","late"};
 vector<TString> eff_sel = {""};
 vector<TString> amp_sel = {""};
 vector<TString> time_sel = {"",""};
-
-//vector<TString> ptk_sel = {"((amp[4]>10&&amp[4]<50&&run<1766)||(amp[0]>150&&amp[0]<200&&run>=1766))","(amp[4]>10&&amp[4]<50&&run<1766)","(amp[0]>150&&amp[0]<200&&run>=1766)","(amp[27]>40&&amp[27]<120&&run<1766)"};
-TString single_chan_sel = "(chidx[dummy]>=0 && (amp[chidx[dummy]]>15 && risetime[chidx[dummy]]>0.15))";
-
-vector<int> lgad_channels = {1,2,3,5,6,7,11,13,14,15,16};
-
-
-// TString num_sel = "(";
-// for(int i=0;i<nchan;i++){
-//   TString buf(single_chan_sel);
-//   buf.ReplaceAll("dummy",Form("%i",i));
-//   if(i>0) num_sel+= " || ";
-//   num_sel+= buf;
-// }
-// num_sel+=")";
-
-
-// TString amp_num = "MaxIf$(amp,";
-// for(uint i=0;i<lgad_channels.size();i++){
-// 	if(i>0) amp_num+="||"
-// 	amp_num+=Form("Iteration$==",lgad_channels[i]);	
-// }
-// amp_num+=")";
-
-// TString time_num = "MinIf$(LP2_30-gaus_mean)";
-// for(uint i=0;i<lgad_channels.size();i++){
-// 	if(i>0) time_num+="||"
-// 	time_num+=Form("Iteration$==",lgad_channels[i]);	
-// }
-// time_num+=")";
-
 
 outRootFile = new TFile(Form("%s.root",tag.Data()),"recreate");
 
@@ -275,7 +246,7 @@ for(int i=0;i<nentries;i++){
 	//Require good photek hit
 	if( run<2900 && !GoodPhotekHit()) continue;
 
-	//Require 0 or 1 LGAD hits to veto showers
+	//Require no more than 1 LGAD pad hit to veto showers
 	pair<int,int> nhits_and_channel =nLGADHitsAndChannel();
 	int nhits= nhits_and_channel.first;
 	int channel = nhits_and_channel.second;
