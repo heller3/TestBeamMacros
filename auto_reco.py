@@ -36,17 +36,20 @@ def errorfile(run_number, error):
     errorfile_handle.write(error + "\n")
     errorfile_handle.close()
 
-basedir = '/eos/uscms/store/user/cmstestbeam/BTL_ETL/2018_11_recover/' 
+basedir = '/home/daq/fnal_tb_18_11/' 
 basedir_rulinux = '/data/TestBeam/2018_11_November_CMSTiming/'
 timingDAQ_location = '/uscms/home/rheller/work/TimingDAQ/'
-trackdir_local = '/uscms/home/rheller/work/CMSTimingConverted/'
+trackdir_local = '/home/daq/fnal_tb_18_11/Tracks'
 #'/data/TestBeam/2018_11_November_CMSTiming/'
+
+root -l ./DT5742Dat2Root --input_file=/home/daq/fnal_tb_18_11/DT5742Mount/DT5742_RAW_Run4665.dat --output_file=/home/daq/fnal_tb_18_11//LocalData/RECO/DT5742/v8/run_DT_4665.root --config_file=config/FNAL_TestBeam_1811/DT5742.config --save_meas --verbose  ^C
+
 
 while(1):
                 #list of all the run numbers                                                                                                                                                                                                 
-                list_raw_to_check = [(x.split("_Run")[1].split(".dat")[0].split("_")[0]) for x in glob.glob(basedir+'CMSTiming/*_Run*')]
-                list_reco = [(x.split("_Run")[1].split(".root")[0].split("_")[0]) for x in glob.glob(basedir+'RECO/v7/*_Run*')]
-                list_track = [(x.split("_Run")[1].split(".root")[0].split("_")[0]) for x in glob.glob(basedir+'RECO/v7/*_Run*')] ### what is this for?
+                list_raw_to_check = [(x.split("_Run")[1].split(".dat")[0].split("_")[0]) for x in glob.glob(basedir+'DT5742Mount/*_Run*')]
+                list_reco = [(x.split("_Run")[1].split(".root")[0].split("_")[0]) for x in glob.glob(basedir+'LocalData/RECO/DT5742/v8/*_Run*')]
+                #list_track = [(x.split("_Run")[1].split(".root")[0].split("_")[0]) for x in glob.glob(basedir+'RECO/v7/*_Run*')] ### what is this for?
 
                 #Check if the list is fine                                                                                                                                                                                                   
                 bool, list_raw = check(list_raw_to_check)
@@ -79,21 +82,20 @@ while(1):
                             else:
                                 print '\n Track file exist on rulinux but not on daq-08, copying Track file \n'
                                 copy_cmd = 'scp otsdaq@rulinux04.dhcp.fnal.gov:' + trackrulinux_path + " " + trackdir_local
-                                print copy_cmd
                                 os.system(copy_cmd)
                             bad_scp = not os.path.exists(tracklocal_path)
                         else:
                             continue;
                             print '\n Doing Tracking \n'
                             #Doing the tracking for the run
-                            session = subprocess.Popen(["ssh", "otsdaq@rulinux04.dhcp.fnal.gov", ". /home/otsdaq/CMSTiming/HyperScriptFastTrigger_NewGeo_18_12_11.sh %i" % x], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+                            session = subprocess.Popen(["ssh", "otsdaq@rulinux04.dhcp.fnal.gov", ". /home/otsdaq/CMSTiming/HyperScriptFastTrigger_NewGeo_18_12_11_meraj.sh %i" % x], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
                             stdout, stderr = session.communicate()
                             if stderr:
                                 bad_scp = True
                                 errorfile(x, "Tracking")
                                 print '\n Tracking threw an error \n'
                                 if exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', basedir+'CMSTimingConverted/Run%i_CMSTiming_converted.root' % x) and  not os.path.exists(tracklocal_path):
-                                    print '\n The error was due to a problem in SCPing from RULINUX TO DAQ08 \n \n Not doing the Tracking now \n'
+                                    print '\n The error was due to a problem in SCPing from RULINUX to timngdaq02 \n \n Not doing the Tracking now \n'
                                 elif not  exists_remote('otsdaq@rulinux04.dhcp.fnal.gov', basedir+'CMSTimingConverted/Run%i_CMSTiming_converted.root' % x) and  not os.path.exists(tracklocal_path):
                                     print '\n The error was an intrinsic Tracking error \n'
                                     errorfile(x, "Intrinsic Tracking")
