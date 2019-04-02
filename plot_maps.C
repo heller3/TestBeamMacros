@@ -129,6 +129,11 @@ void ConvertMap(TH3F * h3, TH2F * h2, int type);
 void Convert1D(TH3F * h3, TH1F * h1, int type, int slice);
 void FillBox(TH3F * h3, TH1D * h1, int ibox);
 pair<float,float> GetMPV(TH1F * h);
+
+Double_t langaufun(Double_t *x, Double_t *par);
+TF1 *langaufit(TH1F *his, Double_t *fitrange, Double_t *startvalues, Double_t *parlimitslo, Double_t *parlimitshi, Double_t *fitparams, Double_t *fiterrors, Double_t *ChiSqr, Int_t *NDF);
+Int_t langaupro(Double_t *params, Double_t &maxx, Double_t &FWHM);
+
 void CleanMap(TH2F * map, float xmin, float xmax, float ymin, float ymax, bool scale);
 pair<float,float> Rotate(float x0, float y0, float angle);
 void CosmeticMap(TH2F * map, TString zaxis);
@@ -390,6 +395,7 @@ cout<<"Processed "<<nentries<<" events, "<<ngoodevents<<" good events."<<endl;
 	CleanMap(gain_map,-0.26,16.45,17.9,22.,false);
 	CosmeticMap(gain_map,"Most probable value [mV]");
 	gain_map->SetMinimum(20.);
+	gain_map->SetMaximum(50.);
 
 
 	cosmetic_map = (TH2F*)v_map_eff[0]->Clone("cosmetic");
@@ -543,7 +549,7 @@ void Convert1D(TH3F * h3, TH1F * h1, int type, int slice){
 		if(type==3){
 			if(h->GetEntries()>10){
 				pair<float,float> mpv_and_err = GetMPV(h);
-				if(mpv_and_err.first < 15 || mpv_and_err.first > 100 || mpv_and_err.second/mpv_and_err.first > 0.2) continue;
+				if(mpv_and_err.first < 15 || mpv_and_err.first > 100 || mpv_and_err.second/mpv_and_err.first > 0.3) continue;
 				h1->SetBinContent(ix,mpv_and_err.first);
 				h1->SetBinError(ix,mpv_and_err.second);
 			}
@@ -586,7 +592,7 @@ void ConvertMap(TH3F * h3, TH2F * h2, int type){
 			if(type==3){
 				if(h->GetEntries()>10){
 					pair<float,float> mpv_and_err = GetMPV(h);
-					if(mpv_and_err.first < 15 || mpv_and_err.first > 100 || mpv_and_err.second/mpv_and_err.first > 0.2) continue;
+					if(mpv_and_err.first < 15 || mpv_and_err.first > 100 || mpv_and_err.second/mpv_and_err.first > 0.3) continue;
 					h2->SetBinContent(ix,iy,mpv_and_err.first);
 					h2->SetBinError(ix,iy,mpv_and_err.second);
 				}
@@ -606,15 +612,190 @@ void ConvertMap(TH3F * h3, TH2F * h2, int type){
 	}
 }
 
+Double_t langaufun(Double_t *x, Double_t *par) {
+
+      Double_t invsq2pi = 0.3989422804014;   // (2 pi)^(-1/2)
+      Double_t mpshift  = -0.22278298;       // Landau maximum location
+
+      Double_t np = 100.0;      // number of convolution steps
+      Double_t sc =   5.0;      // convolution extends to +-sc Gaussian sigmas
+
+      Double_t xx;
+      Double_t mpc;
+      Double_t fland;
+      Double_t sum = 0.0;
+      Double_t xlow,xupp;
+      Double_t step;
+      Double_t i;
+
+      mpc = par[1] - mpshift * par[0];
+
+      xlow = x[0] - sc * par[3];
+      xupp = x[0] + sc * par[3];
+
+      step = (xupp-xlow) / np;
+
+      for(i=1.0; i<=np/2; i++) {
+         xx = xlow + (i-.5) * step;
+         fland = TMath::Landau(xx,mpc,par[0]) / par[0];
+         sum += fland * TMath::Gaus(x[0],xx,par[3]);
+
+         xx = xupp - (i-.5) * step;
+         fland = TMath::Landau(xx,mpc,par[0]) / par[0];
+         sum += fland * TMath::Gaus(x[0],xx,par[3]);
+      }
+
+      return (par[2] * step * sum * invsq2pi / par[3]);
+}
+
+TF1 *langaufit(TH1F *his, Double_t *fitrange, Double_t *startvalues, Double_t *parlimitslo, Double_t *parlimitshi, Double_t *fitparams, Double_t *fiterrors, Double_t *ChiSqr, Int_t *NDF)
+{
+
+   Int_t i;
+   Char_t FunName[100];
+
+   sprintf(FunName,"Fitfcn_%s",his->GetName());
+
+   TF1 *ffitold = (TF1*)gROOT->GetListOfFunctions()->FindObject(FunName);
+   if (ffitold) delete ffitold;
+
+   TF1 *ffit = new TF1(FunName,langaufun,fitrange[0],fitrange[1],4);
+   ffit->SetParameters(startvalues);
+   ffit->SetParNames("Width","MP","Area","GSigma");
+
+   for (i=0; i<4; i++) {
+      ffit->SetParLimits(i, parlimitslo[i], parlimitshi[i]);
+   }
+
+   his->Fit(FunName,"RB0");   // fit within specified range, use ParLimits, do not plot
+
+   ffit->GetParameters(fitparams);    // obtain fit parameters
+   for (i=0; i<4; i++) {
+      fiterrors[i] = ffit->GetParError(i);     // obtain fit parameter errors
+   }
+   ChiSqr[0] = ffit->GetChisquare();  // obtain chi^2
+   NDF[0] = ffit->GetNDF();           // obtain ndf
+
+   return (ffit);              // return fit function
+
+}
+
+Int_t langaupro(Double_t *params, Double_t &maxx, Double_t &FWHM) {
+
+
+   Double_t p,x,fy,fxr,fxl;
+   Double_t step;
+   Double_t l,lold;
+   Int_t i = 0;
+   Int_t MAXCALLS = 10000;
+
+   p = params[1] - 0.1 * params[0];
+   step = 0.05 * params[0];
+   lold = -2.0;
+   l    = -1.0;
+
+
+   while ( (l != lold) && (i < MAXCALLS) ) {
+      i++;
+
+      lold = l;
+      x = p + step;
+      l = langaufun(&x,params);
+
+      if (l < lold)
+         step = -step/10;
+
+      p += step;
+   }
+
+   if (i == MAXCALLS)
+      return (-1);
+
+   maxx = x;
+
+   fy = l/2;
+
+
+   // Search for right x location of fy
+
+   p = maxx + params[0];
+   step = params[0];
+   lold = -2.0;
+   l    = -1e300;
+   i    = 0;
+
+
+   while ( (l != lold) && (i < MAXCALLS) ) {
+      i++;
+
+      lold = l;
+      x = p + step;
+      l = TMath::Abs(langaufun(&x,params) - fy);
+
+      if (l > lold)
+         step = -step/10;
+
+      p += step;
+   }
+
+   if (i == MAXCALLS)
+      return (-2);
+
+   fxr = x;
+
+
+   // Search for left x location of fy
+
+   p = maxx - 0.5 * params[0];
+   step = -params[0];
+   lold = -2.0;
+   l    = -1e300;
+   i    = 0;
+
+   while ( (l != lold) && (i < MAXCALLS) ) {
+      i++;
+
+      lold = l;
+      x = p + step;
+      l = TMath::Abs(langaufun(&x,params) - fy);
+
+      if (l > lold)
+         step = -step/10;
+
+      p += step;
+   }
+
+   if (i == MAXCALLS)
+      return (-3);
+
+
+   fxl = x;
+
+   FWHM = fxr - fxl;
+   return (0);
+}
+
 pair<float,float> GetMPV(TH1F * h){
 
-	TF1* f1  = new TF1("f1","landau",15,100);
-	h->Fit("f1","RQ");
-	float mpv = f1->GetParameter(1);
-	float e_mpv = f1->GetParError(1);
-	float chi2pdf = f1->GetChisquare()/f1->GetNDF();
-	f1->Delete();
 
+    double fr[2]={15,100};
+    double st[2]={15,100};
+    double pllo[4]={0.5,5.0,1.0,0.4};
+    double plhi[4]={5.0,50.0,1000000.0,15.0};
+    double fp[4],fpe[4];
+    double CHI2;
+    int NDF;
+
+    TF1* f1 = langaufit(h ,fr , st, pllo, plhi, fp, fpe, &CHI2, &NDF);
+    f1 -> SetLineColor(3);
+
+    gStyle->SetOptStat(1110);
+    gStyle->SetOptFit(1111);
+  
+    float mpv = f1->GetParameter(1);
+	float e_mpv = f1->GetParError(1);
+    
+    
 	return pair<float,float> {mpv,e_mpv};
 
 }
